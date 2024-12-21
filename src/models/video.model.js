@@ -28,10 +28,10 @@ const videoSchema = new Schema(
             type: Number,
             default: 0
         },
-        likes: {
-            type: Schema.Types.ObjectId, //added by me
-            default: "Like"
-        },
+        //likes: {
+        //    type: Schema.Types.ObjectId, //added by me
+        //    default: "Like"
+        //},
         isPublished: {
             type: Boolean,
             default: true

@@ -5,6 +5,7 @@ import {ApiError} from "../utils/ApiError.js"
 import {ApiResponse} from "../utils/ApiResponse.js"
 import {asyncHandler} from "../utils/asyncHandler.js"
 import {deleteFromCloudinary, uploadOnCloudinary} from "../utils/cloudinary.js"
+import ffmpeg from "fluent-ffmpeg";
 
 const getAllVideos = asyncHandler(async (req, res) => {
 
@@ -85,6 +86,25 @@ const { page = 1, limit = 10, search, sort, userId } = req.query
         }
     }
 });
+
+const getVideoDuration = (videoPath) => {
+    return new Promise((resolve, reject) => {
+        ffmpeg.ffprobe(videoPath, (err, metadata) => {
+            if (err) {
+                reject(err);
+                return;
+            }
+            
+            // Duration is in seconds
+            const duration = metadata.format.duration;
+            
+            resolve({
+                duration,
+                metadata
+            });
+        });
+    });
+}
            
 const publishAVideo = asyncHandler(async (req, res) => {
 
@@ -119,8 +139,13 @@ const publishAVideo = asyncHandler(async (req, res) => {
         throw new ApiError (400, "Thumbnail is missing") 
     }
 
+	// Calculate video duration
+	const { duration } = await getVideoDuration(videoFilePath);
+
+	console.log(`The total duration of the video with ${videoFilePath} is ${duration} seconds`);
+
     // Upload it on the Cloudinary
-    const videoFile = await uploadOnCloudinary(videoFilePath)
+    const videoFile = await uploadOnCloudinary(videoFilePath);
 
     if(!videoFile.url){
         throw new ApiError(400, "Failed to upload on Cloudinary")
@@ -150,7 +175,7 @@ const publishAVideo = asyncHandler(async (req, res) => {
          description,
          videoFile: videoFile.url,
          thumbnail: thumbnail.url,
-         duration: 30,
+         duration,
          owner: userId
      })
 
