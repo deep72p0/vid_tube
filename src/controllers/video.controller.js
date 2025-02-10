@@ -1,10 +1,10 @@
-import mongoose, {isValidObjectId, trusted} from "mongoose"
+import mongoose, {isValidObjectId} from "mongoose"
 import {Video} from "../models/video.model.js"
-import {User} from "../models/user.model.js"
 import {ApiError} from "../utils/ApiError.js"
 import {ApiResponse} from "../utils/ApiResponse.js"
 import {asyncHandler} from "../utils/asyncHandler.js"
 import {deleteFromCloudinary, uploadOnCloudinary} from "../utils/cloudinary.js"
+import ffmpeg from "fluent-ffmpeg"
 
 const getAllVideos = asyncHandler(async (req, res) => {
 
@@ -34,7 +34,7 @@ const { page = 1, limit = 10, search, sort, userId } = req.query
              if (!isValidObjectId(userId)) {
                    throw new ApiError(400, "User not found");
              }
-             filter.owner = userId // For fetching the videos uploaded of a specific user
+             filter.owner = userId; // For fetching the videos uploaded of a specific user
         }
     
          // Step 4: Build and Validate Sort Criteria
@@ -52,9 +52,10 @@ const { page = 1, limit = 10, search, sort, userId } = req.query
     
         // Step 6: Query Database
          const videos = await Video.find(filter)
-              .sort(sortCriteria)
-              .skip(skip)
-         .limit(parseInt(limit));
+            .populate("owner", "username email") 
+            .sort(sortCriteria)
+            .skip(skip)
+            .limit(parseInt(limit));
     
         // Validate if videos are found
          if (!videos || videos.length === 0) {
@@ -85,12 +86,34 @@ const { page = 1, limit = 10, search, sort, userId } = req.query
         }
     }
 });
-           
+
+const getVideoDuration = (videoPath) =>  {
+    return new Promise((resolve, reject) => {
+        ffmpeg.ffprobe(videoPath, (err, metadata) => {
+            if (err) {
+                reject(err);
+                return;
+            }
+
+            const duration = metadata.format.duration;
+            const seconds = duration % 60;
+
+            return resolve({
+                durationInSeconds: seconds,
+                metadata
+            });
+        });
+    })
+}
+
 const publishAVideo = asyncHandler(async (req, res) => {
 
     // TODO: get video, upload to cloudinary, create video
-    const { title, description, userId} = req.body
+    const { title, description } = req.body
     
+    // Get the User ID automatically from the token
+    const userId = req.user?._id
+
     // Validation
      if(!title || typeof title !== "string"){
         throw new ApiError (400, "Title needs to be a string")
@@ -99,7 +122,7 @@ const publishAVideo = asyncHandler(async (req, res) => {
     if(!description || typeof description !== "string"){
         throw new ApiError (400, "Description needs to be a string")
     }
-    
+
     if(!isValidObjectId(userId)){
         throw new ApiError(400, "User is not Valid")
     }
@@ -132,25 +155,21 @@ const publishAVideo = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Failed to upload on Cloudinary")
     }
 
-    /*const path = ffmpeg.ffprobe(videoFilePath, (metadata) => {
-        const duration = metadata.format;
-        console.log(duration)
-        return duration 
-    })
-
-    if(path){
-        console.error(error)
-        throw new ApiError(400, "console.log(PATH)")
-    }*/
-    
     try{
      // Create the Video
+     console.log(videoFilePath);
+
+     const durationObject = await getVideoDuration(videoFilePath);
+
+     console.log("VIDEO DURATION: ", durationObject);
+
+
      const video = await Video.create({
          title,
          description,
          videoFile: videoFile.url,
          thumbnail: thumbnail.url,
-         duration: 30,
+         duration: durationObject.durationInSeconds,
          owner: userId
      })
 
@@ -180,7 +199,7 @@ const getVideoById = asyncHandler(async (req, res) => {
         throw new ApiError(400, "video id is invalid")
     }
 
-    const video = await Video.findById(videoId)
+    const video = await Video.findById(videoId).populate("owner", "username email");
 
     if(!video){
         throw new ApiError(400, "video not found")

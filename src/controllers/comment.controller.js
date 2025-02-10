@@ -51,9 +51,11 @@ const addComment = asyncHandler(async (req, res) => {
 
     try {
         //Get the body
-        const {videoId} = req.params
+        const {videoId} = req.params;
 
-        const {content, userId} = req.body
+        const {content} = req.body;
+
+        const {userId} = req.user._id;
 
         // Validation
         if(!isValidObjectId(videoId)){

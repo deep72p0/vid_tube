@@ -9,7 +9,10 @@ const createPlaylist = asyncHandler(async (req, res) => {
     //TODO: create playlist
 
     // Grab the body
-    const {name, description, videos, userId} = req.body
+    const {name, description, videos} = req.body;
+
+    // Get the user_id
+    const {userId} = req.user._id;
 
     // Validation
     if(!Array.isArray(videos)){
