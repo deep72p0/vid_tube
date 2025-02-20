@@ -13,6 +13,7 @@
   "author": "Akash Chakraborty",
   "license": "ISC",
   "dependencies": {
+    "axios": "^1.7.9",
     "bcrypt": "^5.0.0",
     "cloudinary": "^2.5.1",
     "cookie-parser": "^1.4.7",

@@ -28,22 +28,20 @@ const getVideoComments = asyncHandler(async (req, res) => {
     )
 
     if(!comments){
-        console.log(comments)
         throw new ApiError(400, "Failed to fetch the comments")
     }
 
     // Response
     return res
-     .status(200)
-     .json({
+    .status(200)
+    .json({
         ...new ApiResponse(200, comments, "Fetched the comments successfully"),
         pagination: {
             page,
             limit,
             total: comments.length
         }
-})
-
+    })
 })
 
 const addComment = asyncHandler(async (req, res) => {
@@ -103,18 +101,20 @@ const updateComment = asyncHandler(async (req, res) => {
     }
 
     try {
-        // Update the Tweet
+        // Update the Comment
         const updatedComment = await Comment.findByIdAndUpdate(
-            commentId,{
-        $set: {
-            content: content
-        }
-    })
+            commentId,
+            {
+                $set: {
+                    content: content
+                }
+            }
+        )
         
-    // Response
-    return res
-    .status(200)
-    .json(new ApiResponse(200, updatedComment, "Updated the comment successfully"))
+        // Response
+        return res
+        .status(200)
+        .json(new ApiResponse(200, updatedComment, "Updated the comment successfully"))
     } catch (error) {
         throw new ApiError(400, "Failed to update the Comment")
     }
@@ -132,13 +132,13 @@ if(!isValidObjectId(commentId)){
 }
         
 try {
-    // Update the Tweet
+    // Delete the Tweet
     const deletedComment = await Comment.findByIdAndDelete(commentId)
             
-// Response
-return res
-.status(200)
-.json(new ApiResponse(200, deletedComment, "Deleted the comment successfully"))
+    // Response
+    return res
+    .status(200)
+    .json(new ApiResponse(200, deletedComment, "Deleted the comment successfully"))
 } catch (error) {
     throw new ApiError(400, "Failed to Delete the Comment")
 }

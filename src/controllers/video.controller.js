@@ -5,13 +5,17 @@ import {ApiResponse} from "../utils/ApiResponse.js"
 import {asyncHandler} from "../utils/asyncHandler.js"
 import {deleteFromCloudinary, uploadOnCloudinary} from "../utils/cloudinary.js"
 import ffmpeg from "fluent-ffmpeg"
+// import fs from "fs"
+// import path from "path"
+// import { exec } from "child_process"
+// import axios from "axios"
 
 const getAllVideos = asyncHandler(async (req, res) => {
 
-// Step 1: Extract Query Parameters
-const { page = 1, limit = 10, search, sort, userId } = req.query
+    // Step 1: Extract Query Parameters
+    const { page = 1, limit = 10, search, sort, userId } = req.query
 
-//TODO: get all videos based on query, sort, pagination
+    //TODO: get all videos based on query, sort, pagination
      try {
          // Step 2: Validate `page` and `limit`
          if (isNaN(page) || page <= 0) {
@@ -30,7 +34,7 @@ const { page = 1, limit = 10, search, sort, userId } = req.query
              filter.title = { $regex: search, $options: "i" }; // Case-insensitive search
          }
 
-         if (userId) {
+        if (userId) {
              if (!isValidObjectId(userId)) {
                    throw new ApiError(400, "User not found");
              }
@@ -69,13 +73,13 @@ const { page = 1, limit = 10, search, sort, userId } = req.query
          return res
         .status(201)
         .json({
-        ...new ApiResponse(201, videos, "Video fetched successfully"),
-        pagination: {
-        total: totalVideos,
-        page: parseInt(page, 10),
-        limit: parseInt(limit, 10),
-        totalPages: Math.ceil(totalVideos / limit),
-        },
+            ...new ApiResponse(201, videos, "Video fetched successfully"),
+            pagination: {
+                total: totalVideos,
+                page: parseInt(page, 10),
+                limit: parseInt(limit, 10),
+                totalPages: Math.ceil(totalVideos / limit)
+            }
         });
 
     } catch (error) {
@@ -87,6 +91,7 @@ const { page = 1, limit = 10, search, sort, userId } = req.query
     }
 });
 
+// function to get the duration of a video
 const getVideoDuration = (videoPath) =>  {
     return new Promise((resolve, reject) => {
         ffmpeg.ffprobe(videoPath, (err, metadata) => {
@@ -105,6 +110,67 @@ const getVideoDuration = (videoPath) =>  {
         });
     })
 }
+
+/*// download the video to local directory from cloudinary
+const downloadFile = async (url, outputPath) => {
+    const writer = fs.createWriteStream(outputPath);
+    const response = await axios ({
+        url,
+        method: "GET",
+        responseType: "stream",
+    })
+
+    response.data.pipe(writer);
+
+    return new Promise ((resolve, reject) => {
+        writer.on("finish", resolve);
+        writer.on("error", reject);
+    })
+}
+
+//function to convert a video from mp4 to hls(m3u8)
+const convertToHls = async (videoUrl, Id) => {
+    const outputPath =  path.resolve(__dirname, `./public/temp/${ Id }`);
+
+    if(!fs.existsSync(outputPath)){
+        fs.mkdirSync(
+            outputPath,
+            { recursive: true }
+        )
+    }
+ 
+    const localVideoPath = path.join(outputPath, "input.mp4");
+    await downloadFile(videoUrl, localVideoPath);
+
+    const hlsPath =  path.join(outputPath, `index.m3u8`);
+    console.log("hlsPath", hlsPath)
+
+    return new Promise((resolve, reject) => {
+        // ffmpeg
+        const ffmpegCommand = `ffmpeg -i ${localVideoPath} -codec:v libx264 -codec:a aac -hls_time 10 
+        -hls_playlist_type vod -hls_segment_filename "${outputPath}/segment%03d.ts" -start_number 0 ${hlsPath}`;
+
+            
+        // no queue because of POC, not to be used in production
+        exec(ffmpegCommand, (error, stdout, stderr) => {
+            if(error) {
+            console.log(`exec error: ${error}`)
+            console.log(req.files)
+            reject(error);
+            return;
+            }
+            console.log(`stdout: ${stdout}`)
+            console.log(`stderr:${stderr}`)
+            const videoUrl = `http://localhost:8000/public/temp/${Id}/index.m3u8`;
+
+            return resolve({
+                message: "Video converted to HLS format",
+                videoUrl: videoUrl,
+                Id: Id 
+            })
+        })
+    })
+}*/
 
 const publishAVideo = asyncHandler(async (req, res) => {
 
@@ -156,35 +222,40 @@ const publishAVideo = asyncHandler(async (req, res) => {
     }
 
     try{
-     // Create the Video
-     console.log(videoFilePath);
+        // Create the Video
+        console.log(videoFilePath);
 
-     const durationObject = await getVideoDuration(videoFilePath);
+        const durationObject = await getVideoDuration(videoFilePath);
 
-     console.log("VIDEO DURATION: ", durationObject);
+        console.log("VIDEO DURATION: ", durationObject);
 
+        const video = await Video.create({
+            title,
+            description,
+            videoFile: videoFile.url,
+            thumbnail: thumbnail.url,
+            duration: durationObject.durationInSeconds,
+            owner: userId
+        })
 
-     const video = await Video.create({
-         title,
-         description,
-         videoFile: videoFile.url,
-         thumbnail: thumbnail.url,
-         duration: durationObject.durationInSeconds,
-         owner: userId
-     })
+        // Save the video?(in the updated versions *.Create* method creates an saves the object into the DB automatically)
+        //await video.save({ validateBeforeSave: false })
 
-     // Save the video?(in the updated versions *.Create* method creates an saves the object into the DB automatically)
-     //await video.save({ validateBeforeSave: false })
+        // Return a response
 
-     // Return a response
+        // convert the video to hsl format
+        /*const hlsResult = convertToHls(videoFile.url, video._id);
+
+        if(!hlsPath){
+            console.log(`hello from:`, req.files)
+            throw new ApiError (400, "Hls file is missing") 
+        }*/
      
-     return res
-    .status(201)
-    .json(new ApiResponse(201, video, "Published the video")
-)
+        return res
+        .status(201)
+        .json(new ApiResponse(201, { video, hls: hlsResult }, "Published the video"))
     } catch(error){
         console.error(error)
-
         throw new ApiError(500,"Something happened while uploading the video")
     }
 })
