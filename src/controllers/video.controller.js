@@ -5,10 +5,10 @@ import {ApiResponse} from "../utils/ApiResponse.js"
 import {asyncHandler} from "../utils/asyncHandler.js"
 import {deleteFromCloudinary, uploadOnCloudinary} from "../utils/cloudinary.js"
 import ffmpeg from "fluent-ffmpeg"
-// import fs from "fs"
-// import path from "path"
-// import { exec } from "child_process"
-// import axios from "axios"
+import fs from "fs"
+import path from "path"
+import { exec } from "child_process"
+import axios from "axios"
 
 const getAllVideos = asyncHandler(async (req, res) => {
 
@@ -111,7 +111,7 @@ const getVideoDuration = (videoPath) =>  {
     })
 }
 
-/*// download the video to local directory from cloudinary
+// download the video to local directory from cloudinary
 const downloadFile = async (url, outputPath) => {
     const writer = fs.createWriteStream(outputPath);
     const response = await axios ({
@@ -130,7 +130,7 @@ const downloadFile = async (url, outputPath) => {
 
 //function to convert a video from mp4 to hls(m3u8)
 const convertToHls = async (videoUrl, Id) => {
-    const outputPath =  path.resolve(__dirname, `./public/temp/${ Id }`);
+    const outputPath =  path.resolve(process.cwd(), `./public/temp/${ Id }`);
 
     if(!fs.existsSync(outputPath)){
         fs.mkdirSync(
@@ -147,15 +147,12 @@ const convertToHls = async (videoUrl, Id) => {
 
     return new Promise((resolve, reject) => {
         // ffmpeg
-        const ffmpegCommand = `ffmpeg -i ${localVideoPath} -codec:v libx264 -codec:a aac -hls_time 10 
-        -hls_playlist_type vod -hls_segment_filename "${outputPath}/segment%03d.ts" -start_number 0 ${hlsPath}`;
-
+        const ffmpegCommand = `ffmpeg -i ${localVideoPath} -codec:v libx264 -codec:a aac -hls_time 10 -hls_playlist_type vod -hls_segment_filename "${outputPath}/segment%03d.ts" -start_number 0 ${hlsPath}`;
             
         // no queue because of POC, not to be used in production
         exec(ffmpegCommand, (error, stdout, stderr) => {
             if(error) {
             console.log(`exec error: ${error}`)
-            console.log(req.files)
             reject(error);
             return;
             }
@@ -170,7 +167,7 @@ const convertToHls = async (videoUrl, Id) => {
             })
         })
     })
-}*/
+}
 
 const publishAVideo = asyncHandler(async (req, res) => {
 
@@ -208,8 +205,10 @@ const publishAVideo = asyncHandler(async (req, res) => {
         throw new ApiError (400, "Thumbnail is missing") 
     }
 
+    const durationObject = await getVideoDuration(videoFilePath);
+
     // Upload it on the Cloudinary
-    const videoFile = await uploadOnCloudinary(videoFilePath)
+    const videoFile = await uploadOnCloudinary(videoFilePath);
 
     if(!videoFile.url){
         throw new ApiError(400, "Failed to upload on Cloudinary")
@@ -224,8 +223,6 @@ const publishAVideo = asyncHandler(async (req, res) => {
     try{
         // Create the Video
         console.log(videoFilePath);
-
-        const durationObject = await getVideoDuration(videoFilePath);
 
         console.log("VIDEO DURATION: ", durationObject);
 
@@ -244,12 +241,12 @@ const publishAVideo = asyncHandler(async (req, res) => {
         // Return a response
 
         // convert the video to hsl format
-        /*const hlsResult = convertToHls(videoFile.url, video._id);
+        const hlsResult = await convertToHls(videoFile.url, video._id);
 
-        if(!hlsPath){
+        if(!hlsResult){
             console.log(`hello from:`, req.files)
             throw new ApiError (400, "Hls file is missing") 
-        }*/
+        }
      
         return res
         .status(201)
