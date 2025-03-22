@@ -145,7 +145,8 @@ const loginUser = asyncHandler(async (req, res) =>{
 
     const options = {
         httpOnly: true,
-        secure: true
+        secure: true, // for http || set: "true" if using https,
+        // sameSite: "Lax" // ensures cookies work across origins
     }
 
     return res
