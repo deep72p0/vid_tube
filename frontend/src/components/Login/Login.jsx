@@ -25,7 +25,7 @@ const Login = () => {
                 {withCredentials: true} // ensures the cookies are sent
             );
             console.log("User has logged in successfully", response.data);  
-            //navigate(`/channel`)
+            navigate(`/channel`)
         } catch (error) {
             console.error("Failed to log in the user", error.message);
         } finally {
