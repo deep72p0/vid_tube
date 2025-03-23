@@ -18,13 +18,15 @@ const getVideoComments = asyncHandler(async (req, res) => {
     const {page = 1, limit = 10} = req.query
 
     // Calculate the pagination
-    const skip = (page - 1) * limit
+    const skip = (page - 1) * limit;
     
-    // Get the comments
+    // Get the comments by querying the DB
     const comments = await Comment.find(
         {
             video: videoId
         }
+        .skip(skip)
+        .limit(parseInt(limit))
     )
 
     if(!comments){
@@ -37,9 +39,10 @@ const getVideoComments = asyncHandler(async (req, res) => {
     .json({
         ...new ApiResponse(200, comments, "Fetched the comments successfully"),
         pagination: {
-            page,
-            limit,
-            total: comments.length
+            total: comments,
+            page: parseInt(page, 10),
+            limit: parseInt(limit, 10),
+            totalPages: Math.ceil(comments / limit)
         }
     })
 })
@@ -149,4 +152,4 @@ export {
     addComment, 
     updateComment,
      deleteComment
-    }
+}
